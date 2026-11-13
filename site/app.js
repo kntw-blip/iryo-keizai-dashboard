@@ -3,7 +3,7 @@
    data/hosp.json … 自院検索用の病院マスタ */
 "use strict";
 const $ = (id) => document.getElementById(id);
-const S = { h: null, round: null, fy: 1, shukei: 1, scope: "all", ind: "pl", axis: "owner", axisSub: "", plKey: "", charts: {}, hide: new Set(),
+const S = { h: null, round: null, fy: 1, shukei: 1, scope: "all", ind: "pl", axis: "owner", axisSub: "", plKey: "", charts: {}, hide: new Set(), from: 0,
             prof: { htype: "一般病院", owner: "", bed: "", nyuin: "", func: "", ryo: "" } };
 let D, H, IDX = {}, ROUNDS = [];
 
@@ -137,26 +137,28 @@ function renderPeer() {
 function renderTrend() {
   const ps = peers(), ind = indOf(S.ind), o = baseOpt();
   $("trend-cond").textContent = `集計${S.shukei}・国公立を${S.scope === "ex" ? "除く" : "含む"}`;
+  if (!ROUNDS.some((r) => r.fy[0] === S.from)) S.from = ROUNDS[0].fy[0];
   $("trend-title").textContent = `${ind.l}（${ind.u}）の推移`;
   $("trend-legend").innerHTML = ps.map((p) => `<button type="button" class="lg" data-k="${p.kind}" aria-pressed="${!S.hide.has(p.kind)}"><span class="sw" style="background:var(${p.color})"></span>${esc(p.label)}</button>`).join("");
   const narrow = $("ch-trend").clientWidth < 560, shown = ps.filter((p) => !S.hide.has(p.kind));
-  const fys = ROUNDS.flatMap((r) => r.fy);
+  const RS = ROUNDS.filter((r) => r.fy[0] >= S.from), fys = RS.flatMap((r) => r.fy);
+  fillSel($("trend-from"), ROUNDS.map((r, i) => [String(r.fy[0]), i === 0 ? `全期間（${r.fy[0]}年度〜）` : `${r.fy[0]}年度〜`]), String(RS[0].fy[0]));
   const series = shown.map((p) => {
     const data = [];
-    ROUNDS.forEach((r) => { [0, 1].forEach((i) => { const v = val(p.s, String(r.round), i, ind); data.push([r.fy[i], typeof v === "number" ? v : null]); }); data.push([r.fy[1] + 0.5, null]); });
+    RS.forEach((r) => { [0, 1].forEach((i) => { const v = val(p.s, String(r.round), i, ind); data.push([r.fy[i], typeof v === "number" ? v : null]); }); data.push([r.fy[1] + 0.5, null]); });
     const c = css(p.color);
     return { name: p.label, type: "line", data, connectNulls: false, symbol: "circle", symbolSize: narrow ? 6 : 8, lineStyle: { width: p.kind === "all" ? 2 : 2.5, color: c, type: p.kind === "all" ? "dashed" : "solid" },
              itemStyle: { color: c, borderColor: css("--surface-1"), borderWidth: narrow ? 1 : 2 }, emphasis: { focus: "series" } };
   });
   chart("ch-trend").setOption({ ...o, grid: { left: narrow ? 40 : 56, right: narrow ? 8 : 24, top: 16, bottom: 40 },
     tooltip: { ...o.tooltip, trigger: "axis", axisPointer: { type: "line", snap: true, lineStyle: { color: css("--axis") } },
-      formatter: (ps_) => { const pts = ps_.filter((p) => p.value[1] != null && Number.isInteger(p.value[0])); if (!pts.length) return ""; const y = pts[0].value[0]; const r = ROUNDS.find((x) => x.fy.includes(y));
+      formatter: (ps_) => { const pts = ps_.filter((p) => p.value[1] != null && Number.isInteger(p.value[0])); if (!pts.length) return ""; const y = pts[0].value[0]; const r = RS.find((x) => x.fy.includes(y));
         return `<b>${fyLabel(y)}</b> <span style="color:${css("--text-muted")}">第${r.round}回調査</span><br>` + pts.map((p) => `${p.marker}${esc(p.seriesName)}　<b>${fmt(p.value[1], ind.d)}</b>${ind.u}`).join("<br>"); } },
-    xAxis: { type: "value", min: fys[0] - 1, max: fys[fys.length - 1] + 1, interval: 1, ...o._ax, splitLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => (v < fys[0] || v > fys[fys.length - 1] ? "" : !narrow ? String(v) : ROUNDS.some((r) => r.fy[0] === v) ? "'" + String(v).slice(2) : ""), interval: 0, hideOverlap: false }, name: "年度", nameLocation: "middle", nameGap: 26, nameTextStyle: { color: css("--text-muted"), fontSize: 12 } },
+    xAxis: { type: "value", min: fys[0] - 1, max: fys[fys.length - 1] + 1, interval: 1, ...o._ax, splitLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => (v < fys[0] || v > fys[fys.length - 1] ? "" : !narrow || fys.length <= 8 ? String(v) : RS.some((r) => r.fy[0] === v) ? "'" + String(v).slice(2) : ""), interval: 0, hideOverlap: false }, name: "年度", nameLocation: "middle", nameGap: 26, nameTextStyle: { color: css("--text-muted"), fontSize: 12 } },
     yAxis: { type: "value", scale: true, ...o._ax, axisLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => fmt(v, ind.u === "％" ? 0 : 0) } },
     series }, true);
   const head = ["病院群", ...fys.map((y) => `${y}`)];
-  table($("trend-table"), head, ps.map((p) => ({ cells: [esc(p.label), ...ROUNDS.flatMap((r) => [0, 1].map((i) => cell(val(p.s, String(r.round), i, ind), ind)))] })));
+  table($("trend-table"), head, ps.map((p) => ({ cells: [esc(p.label), ...RS.flatMap((r) => [0, 1].map((i) => cell(val(p.s, String(r.round), i, ind), ind)))] })));
 }
 
 /* ---------- 区分別の比較・費用構造 ---------- */
@@ -267,7 +269,7 @@ function renderAll() { renderSelf(); renderProfSelects(); renderRound(); renderP
 function syncUrl() {
   const q = new URLSearchParams();
   if (S.h) q.set("h", S.h.id);
-  q.set("round", S.round); q.set("fy", S.fy); q.set("shukei", S.shukei); q.set("scope", S.scope); q.set("ind", S.ind); q.set("axis", S.axis);
+  q.set("round", S.round); q.set("fy", S.fy); q.set("shukei", S.shukei); q.set("scope", S.scope); q.set("ind", S.ind); q.set("axis", S.axis); if (S.from > ROUNDS[0].fy[0]) q.set("from", S.from);
   history.replaceState(null, "", "?" + q.toString() + location.hash);
 }
 function pick(h) { S.h = h; S.prof = h ? profFromHosp(h) : S.prof; S._subTouched = false; S._plTouched = false; $("q").value = h ? h.name : ""; renderAll(); }
@@ -300,6 +302,8 @@ async function main() {
   S.round = ROUNDS.some((r) => String(r.round) === q.get("round")) ? q.get("round") : String(last.round);
   S.fy = q.get("fy") === "0" ? 0 : 1; S.shukei = q.get("shukei") === "2" ? 2 : 1; S.scope = q.get("scope") === "ex" ? "ex" : "all";
   S.ind = IND.some((x) => x.k === q.get("ind")) ? q.get("ind") : "pl"; S.axis = AXES.some((x) => x[0] === q.get("axis")) ? q.get("axis") : "owner";
+  S.from = ROUNDS.some((r) => String(r.fy[0]) === q.get("from")) ? +q.get("from") : ROUNDS[0].fy[0];
+  $("trend-from").addEventListener("change", (e) => { S.from = +e.target.value; renderTrend(); syncUrl(); });
   $("latest-round").textContent = `第${last.round}回`; $("foot-latest").textContent = `第${last.round}回`; $("fy-range").textContent = `${ROUNDS[0].fy[0]}〜${last.fy[1]}`;
   $("foot-built").textContent = `データ作成日：${D.meta.built}`;
   fillSel($("round"), ROUNDS.slice().reverse().map((r) => [String(r.round), `第${r.round}回（${r.year}年実施）`]), S.round);
