@@ -2,7 +2,8 @@
 医療経済実態調査（医療機関等調査）第19回〜直近の「報告 全体版」Excel を e-Stat から取得する。
   - 既知の回は ROUNDS の statInfId から直接取得
   - それ以降の回は e-Stat の一覧ページから自動検出（「第N回」「全体版」「EXCEL」）
-出力: RAW_DIR/mes/第NN回_全体版.<拡張子>、RAW_DIR/manifest.json
+自院検索用の病院マスタとして、DPC退院患者調査ダッシュボード（kntw-blip/dpc-taiin-dashboard）の公開データ core.json も取得する。
+出力: RAW_DIR/mes/第NN回_全体版.<拡張子>、RAW_DIR/dpc/core.json、RAW_DIR/manifest.json
 """
 import json, re, sys, time, pathlib
 import requests
@@ -70,7 +71,18 @@ def discover():
     except Exception as e:
         print("FAILED discover", e, flush=True)
 
+DPC_CORE = "https://kntw-blip.github.io/dpc-taiin-dashboard/data/core.json"
+
+def fetch_dpc_core():
+    try:
+        c = get(DPC_CORE).content; json.loads(c)
+        p = RAW / "dpc" / "core.json"; p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(c)
+        print("saved", p, len(c), flush=True)
+    except Exception as e:
+        print("FAILED dpc core", e, flush=True)
+
 if __name__ == "__main__":
+    fetch_dpc_core()
     for rnd, (year, _, sid) in ROUNDS.items():
         try: save(rnd, year, sid)
         except Exception as e: print("FAILED", rnd, e, flush=True)
