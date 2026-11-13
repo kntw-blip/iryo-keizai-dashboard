@@ -256,3 +256,16 @@ details.tv { margin-top: 6px; } details.tv summary { cursor: pointer; font-size:
 .hero { font-size: 15px; margin: 2px 0 12px; }
 .hero b { font-weight: 650; }
 @media (max-width: 720px) { .filters { position: static; } .chart.tall { height: 380px; } .sel { min-width: 0; max-width: 100%; } }
+/* 凡例ボタン（タップで系列の表示/非表示） */
+.legend .lg { font: inherit; font-size: 12px; color: var(--text-secondary); background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
+.legend .lg[aria-pressed="false"] { opacity: .45; text-decoration: line-through; }
+.legend .lg:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+/* 切り替えボタンは折り返さず、はみ出す分は横スクロール */
+.seg { max-width: 100%; overflow-x: auto; }
+.seg button { white-space: nowrap; flex: none; }
+@media (max-width: 720px) {
+  .chart.tall { height: 420px; }
+  .card { padding: 12px 10px 10px; }
+  h2 .note { display: block; margin: 2px 0 0; }
+  .f-item { max-width: 100%; }
+}

@@ -3,13 +3,13 @@
    data/hosp.json … 自院検索用の病院マスタ */
 "use strict";
 const $ = (id) => document.getElementById(id);
-const S = { h: null, round: null, fy: 1, shukei: 1, scope: "all", ind: "pl", axis: "owner", axisSub: "", plKey: "", charts: {},
+const S = { h: null, round: null, fy: 1, shukei: 1, scope: "all", ind: "pl", axis: "owner", axisSub: "", plKey: "", charts: {}, hide: new Set(),
             prof: { htype: "一般病院", owner: "", bed: "", nyuin: "", func: "", ryo: "" } };
 let D, H, IDX = {}, ROUNDS = [];
 
 const OWNERS = ["医療法人", "国立", "公立", "公的", "社会保険関係法人", "その他", "個人"];
 const RYO = { ryo60: "療養病床60％以上", ryo0: "療養病床なし", zaishi: "在宅療養支援病院" };
-const AXES = [["owner", "開設者"], ["beds", "病床規模"], ["nyuin", "入院基本料"], ["func", "病院機能"], ["ryo", "療養病床・在宅"], ["region", "地域（地域加算の級地）"]];
+const AXES = [["owner", "開設者"], ["beds", "病床規模"], ["nyuin", "入院基本料"], ["func", "病院機能"], ["ryo", "療養病床・在宅"], ["region", "地域加算の級地"]];
 const ratio = (k) => (e, i) => (e.v[k] ? e.v[k][2 + i] : null);
 const bedsOf = (e, i) => (e.beds ? (e.beds[i] ?? e.beds[0]) : null);
 const IND = [
@@ -138,20 +138,21 @@ function renderTrend() {
   const ps = peers(), ind = indOf(S.ind), o = baseOpt();
   $("trend-cond").textContent = `集計${S.shukei}・国公立を${S.scope === "ex" ? "除く" : "含む"}`;
   $("trend-title").textContent = `${ind.l}（${ind.u}）の推移`;
-  $("trend-legend").innerHTML = ps.map((p) => `<span><span class="sw" style="background:var(${p.color})"></span>${esc(p.label)}</span>`).join("");
+  $("trend-legend").innerHTML = ps.map((p) => `<button type="button" class="lg" data-k="${p.kind}" aria-pressed="${!S.hide.has(p.kind)}"><span class="sw" style="background:var(${p.color})"></span>${esc(p.label)}</button>`).join("");
+  const narrow = $("ch-trend").clientWidth < 560, shown = ps.filter((p) => !S.hide.has(p.kind));
   const fys = ROUNDS.flatMap((r) => r.fy);
-  const series = ps.map((p) => {
+  const series = shown.map((p) => {
     const data = [];
     ROUNDS.forEach((r) => { [0, 1].forEach((i) => { const v = val(p.s, String(r.round), i, ind); data.push([r.fy[i], typeof v === "number" ? v : null]); }); data.push([r.fy[1] + 0.5, null]); });
     const c = css(p.color);
-    return { name: p.label, type: "line", data, connectNulls: false, symbol: "circle", symbolSize: 8, lineStyle: { width: p.kind === "all" ? 2 : 2.5, color: c, type: p.kind === "all" ? "dashed" : "solid" },
-             itemStyle: { color: c, borderColor: css("--surface-1"), borderWidth: 2 }, emphasis: { focus: "series" } };
+    return { name: p.label, type: "line", data, connectNulls: false, symbol: "circle", symbolSize: narrow ? 6 : 8, lineStyle: { width: p.kind === "all" ? 2 : 2.5, color: c, type: p.kind === "all" ? "dashed" : "solid" },
+             itemStyle: { color: c, borderColor: css("--surface-1"), borderWidth: narrow ? 1 : 2 }, emphasis: { focus: "series" } };
   });
-  chart("ch-trend").setOption({ ...o, grid: { left: 56, right: 24, top: 16, bottom: 40 },
+  chart("ch-trend").setOption({ ...o, grid: { left: narrow ? 40 : 56, right: narrow ? 8 : 24, top: 16, bottom: 40 },
     tooltip: { ...o.tooltip, trigger: "axis", axisPointer: { type: "line", snap: true, lineStyle: { color: css("--axis") } },
       formatter: (ps_) => { const pts = ps_.filter((p) => p.value[1] != null && Number.isInteger(p.value[0])); if (!pts.length) return ""; const y = pts[0].value[0]; const r = ROUNDS.find((x) => x.fy.includes(y));
         return `<b>${fyLabel(y)}</b> <span style="color:${css("--text-muted")}">第${r.round}回調査</span><br>` + pts.map((p) => `${p.marker}${esc(p.seriesName)}　<b>${fmt(p.value[1], ind.d)}</b>${ind.u}`).join("<br>"); } },
-    xAxis: { type: "value", min: fys[0] - 1, max: fys[fys.length - 1] + 1, interval: 1, ...o._ax, splitLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => (v >= fys[0] && v <= fys[fys.length - 1] ? String(v) : "") }, name: "年度", nameLocation: "middle", nameGap: 26, nameTextStyle: { color: css("--text-muted"), fontSize: 12 } },
+    xAxis: { type: "value", min: fys[0] - 1, max: fys[fys.length - 1] + 1, interval: 1, ...o._ax, splitLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => (v < fys[0] || v > fys[fys.length - 1] ? "" : !narrow ? String(v) : ROUNDS.some((r) => r.fy[0] === v) ? "'" + String(v).slice(2) : ""), interval: 0, hideOverlap: false }, name: "年度", nameLocation: "middle", nameGap: 26, nameTextStyle: { color: css("--text-muted"), fontSize: 12 } },
     yAxis: { type: "value", scale: true, ...o._ax, axisLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => fmt(v, ind.u === "％" ? 0 : 0) } },
     series }, true);
   const head = ["病院群", ...fys.map((y) => `${y}`)];
@@ -195,7 +196,7 @@ function renderAxis() {
   chart("ch-axis").setOption({ ...o, grid: { left: 8, right: 64, top: 8, bottom: 28, containLabel: true },
     tooltip: { ...o.tooltip, trigger: "item", formatter: (p) => { const s = list[p.dataIndex], e = s.r[S.round]; return `<b>${esc(s.group)}</b><br>${esc(ind.l)}　<b>${typeof vals[p.dataIndex] === "number" ? fmt(vals[p.dataIndex], ind.d) + ind.u : "非公表"}</b><br>施設数 ${fmt(e.n, 0)}・平均病床数 ${fmt(bedsOf(e, S.fy), 0)}`; } },
     xAxis: { type: "value", ...o._ax, axisLine: { show: false }, scale: false },
-    yAxis: { type: "category", data: names, inverse: true, ...o._ax, splitLine: { show: false }, axisLabel: { color: t1, fontSize: 12, width: 190, overflow: "truncate" } },
+    yAxis: { type: "category", data: names, inverse: true, ...o._ax, splitLine: { show: false }, axisLabel: { color: t1, fontSize: 12, width: $("ch-axis").clientWidth < 560 ? 110 : 190, overflow: "break" } },
     series: [{ type: "bar", barMaxWidth: 20, data: vals.map((v, i) => ({ value: typeof v === "number" ? v : null, itemStyle: { color: isSelf(list[i]) ? selfC : otherC, borderRadius: typeof v === "number" && v < 0 ? [4, 0, 0, 4] : [0, 4, 4, 0] } })),
       label: { show: true, position: "right", color: t1, fontSize: 12, formatter: (p) => (p.value == null ? "" : fmt(p.value, ind.d)) } }] }, true);
   const cols = ["n", "beds", "rev", "pl", "tpl", "c_salary", "c_drug", "c_material", "c_outsource", "c_dep", "rev_in"];
@@ -211,7 +212,7 @@ function renderAxis() {
     tooltip: { ...o.tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: "rgba(127,127,127,.08)" } },
       formatter: (ps_) => { const s = list[ps_[0].dataIndex], e = s.r[S.round]; return `<b>${esc(s.group)}</b><br>` + ps_.map((p) => `${p.marker}${p.seriesName}　<b>${fmt(p.value, 1)}</b>％`).join("<br>") + (e.v && e.v.cost ? `<br>費用計　<b>${fmt(e.v.cost[2 + S.fy], 1)}</b>％` : ""); } },
     xAxis: { type: "value", ...o._ax, axisLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: "{value}%" } },
-    yAxis: { type: "category", data: names, inverse: true, ...o._ax, splitLine: { show: false }, axisLabel: { color: t1, fontSize: 12, width: 190, overflow: "truncate" } },
+    yAxis: { type: "category", data: names, inverse: true, ...o._ax, splitLine: { show: false }, axisLabel: { color: t1, fontSize: 12, width: $("ch-axis").clientWidth < 560 ? 110 : 190, overflow: "break" } },
     series: SEG.map(([k, l, c], si) => ({ name: l, type: "bar", stack: "c", barMaxWidth: 22, data: list.map((s) => rv(s, k)), itemStyle: { color: css(c), borderColor: css("--surface-1"), borderWidth: 1 },
       label: { show: si === 0, position: "inside", color: "#fff", fontSize: 11, formatter: (p) => (p.value == null ? "" : fmt(p.value, 1)) },
       markLine: si === 0 ? { silent: true, symbol: "none", lineStyle: { color: css("--ref"), width: 1.5, type: "solid" }, label: { formatter: "収益=100%", color: css("--text-secondary"), fontSize: 11 }, data: [{ xAxis: 100 }] } : undefined })) }, true);
@@ -312,6 +313,7 @@ async function main() {
   onSeg("scope-seg", (v) => { S.scope = v; renderAll(); });
   onSeg("axis-seg", (v) => { S.axis = v; S._subTouched = false; S.axisSub = ""; renderAll(); });
   $("axis-sub").addEventListener("change", (e) => { S.axisSub = e.target.value; S._subTouched = true; renderAxis(); });
+  $("trend-legend").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-k]"); if (!b) return; const k = b.dataset.k; if (S.hide.has(k)) S.hide.delete(k); else S.hide.add(k); renderTrend(); });
   $("pl-group").addEventListener("change", (e) => { S.plKey = e.target.value; S._plTouched = true; renderPL(axisList()); });
   [["p-htype", "htype"], ["p-owner", "owner"], ["p-bed", "bed"], ["p-nyuin", "nyuin"], ["p-func", "func"], ["p-ryo", "ryo"]].forEach(([id, k]) => $(id).addEventListener("change", (e) => { S.prof[k] = e.target.value; S._subTouched = false; S._plTouched = false; renderAll(); }));
   $("self-clear").addEventListener("click", () => { S.h = null; $("q").value = ""; renderAll(); });
