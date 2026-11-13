@@ -26,6 +26,7 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install python-calamine
       - name: Build data
+        shell: bash   # pipefail を有効にして、検証の失敗でビルドを止める
         run: |
           mkdir -p site/data
           python scripts/build_data.py raw site/data 2>&1 | tee build_log.txt
