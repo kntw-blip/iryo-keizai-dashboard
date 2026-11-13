@@ -1,0 +1,58 @@
+[
+ {
+  "round": 19,
+  "year": 2013,
+  "path": "mes/第19回_全体版.xlsx",
+  "bytes": 2503815,
+  "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000023603649&fileKind=0",
+  "statInfId": "000023603649"
+ },
+ {
+  "round": 20,
+  "year": 2015,
+  "path": "mes/第20回_全体版.xlsx",
+  "bytes": 6112302,
+  "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031329812&fileKind=0",
+  "statInfId": "000031329812"
+ },
+ {
+  "round": 21,
+  "year": 2017,
+  "path": "mes/第21回_全体版.xlsx",
+  "bytes": 16288684,
+  "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031641199&fileKind=0",
+  "statInfId": "000031641199"
+ },
+ {
+  "round": 22,
+  "year": 2019,
+  "path": "mes/第22回_全体版.xlsx",
+  "bytes": 8216207,
+  "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031884795&fileKind=0",
+  "statInfId": "000031884795"
+ },
+ {
+  "round": 23,
+  "year": 2021,
+  "path": "mes/第23回_全体版.xlsx",
+  "bytes": 32810847,
+  "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032144413&fileKind=0",
+  "statInfId": "000032144413"
+ },
+ {
+  "round": 24,
+  "year": 2023,
+  "path": "mes/第24回_全体版.xlsx",
+  "bytes": 6940337,
+  "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040121502&fileKind=0",
+  "statInfId": "000040121502"
+ },
+ {
+  "round": 25,
+  "year": 2025,
+  "path": "mes/第25回_全体版.xlsx",
+  "bytes": 11990172,
+  "url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040372898&fileKind=0",
+  "statInfId": "000040372898"
+ }
+]
