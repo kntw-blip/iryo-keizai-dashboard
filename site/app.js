@@ -156,12 +156,14 @@ function renderTrend() {
   if (has.length) RS = RS.slice(RS.indexOf(has[0]), RS.indexOf(has[has.length - 1]) + 1);
   $("trend-gap").textContent = full ? "" : has.length ? `この項目は${has.map((r) => `第${r.round}回`).join("・")}（${has[0].fy[0]}〜${has[has.length - 1].fy[1]}年度）のみ集計されているため、その期間だけを表示しています。` : "選んだ期間にはこの項目の集計がありません。";
   const fys = RS.flatMap((r) => r.fy);
-  const series = shown.map((p) => {
+  const bounds = RS.slice(1).map((r) => ({ xAxis: r.fy[0] - 0.5 }));
+  const series = shown.map((p, si) => {
     const data = [];
-    RS.forEach((r) => { [0, 1].forEach((i) => { const v = val(p.s, String(r.round), i, ind); data.push([r.fy[i], typeof v === "number" ? v : null]); }); data.push([r.fy[1] + 0.5, null]); });
+    RS.forEach((r) => { [0, 1].forEach((i) => { const v = val(p.s, String(r.round), i, ind); data.push([r.fy[i], typeof v === "number" ? v : null]); }); });
     const c = css(p.color);
-    return { name: p.label, type: "line", data, connectNulls: false, symbol: "circle", symbolSize: narrow ? 6 : 8, lineStyle: { width: p.kind === "all" ? 2 : 2.5, color: c, type: p.kind === "all" ? "dashed" : "solid" },
-             itemStyle: { color: c, borderColor: css("--surface-1"), borderWidth: narrow ? 1 : 2 }, emphasis: { focus: "series" } };
+    return { name: p.label, type: "line", data, connectNulls: true, symbol: "circle", symbolSize: narrow ? 6 : 8, lineStyle: { width: p.kind === "all" ? 2 : 2.5, color: c, type: p.kind === "all" ? "dashed" : "solid" },
+             itemStyle: { color: c, borderColor: css("--surface-1"), borderWidth: narrow ? 1 : 2 }, emphasis: { focus: "series" },
+             markLine: si === 0 && bounds.length ? { silent: true, symbol: "none", label: { show: false }, lineStyle: { color: css("--grid"), width: 1, type: [3, 3] }, data: bounds } : undefined };
   });
   chart("ch-trend").setOption({ ...o, grid: { left: narrow ? 40 : 56, right: narrow ? 8 : 24, top: 16, bottom: 40 },
     tooltip: { ...o.tooltip, trigger: "axis", axisPointer: { type: "line", snap: true, lineStyle: { color: css("--axis") } },
