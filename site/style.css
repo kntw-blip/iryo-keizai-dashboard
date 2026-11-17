@@ -269,3 +269,5 @@ details.tv { margin-top: 6px; } details.tv summary { cursor: pointer; font-size:
   h2 .note { display: block; margin: 2px 0 0; }
   .f-item { max-width: 100%; }
 }
+
+#trend-gap:empty { display: none; }

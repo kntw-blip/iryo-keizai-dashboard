@@ -12,23 +12,30 @@ const RYO = { ryo60: "療養病床60％以上", ryo0: "療養病床なし", zais
 const AXES = [["owner", "開設者"], ["beds", "病床規模"], ["nyuin", "入院基本料"], ["func", "病院機能"], ["ryo", "療養病床・在宅"], ["region", "地域加算の級地"]];
 const ratio = (k) => (e, i) => (e.v[k] ? e.v[k][2 + i] : null);
 const bedsOf = (e, i) => (e.beds ? (e.beds[i] ?? e.beds[0]) : null);
+const R_ = (k, l, g) => ({ k, l, u: "％", d: 1, g, f: ratio(k) });
 const IND = [
-  { k: "pl", l: "損益率", u: "％", d: 1, f: ratio("pl") },
-  { k: "tpl", l: "総損益率（補助金等を含む）", u: "％", d: 1, f: ratio("tpl") },
-  { k: "c_salary", l: "給与費比率", u: "％", d: 1, f: ratio("c_salary") },
-  { k: "c_drug", l: "医薬品費比率", u: "％", d: 1, f: ratio("c_drug") },
-  { k: "c_material", l: "診療材料費比率", u: "％", d: 1, f: ratio("c_material") },
-  { k: "c_outsource", l: "委託費比率", u: "％", d: 1, f: ratio("c_outsource") },
-  { k: "c_dep", l: "減価償却費比率", u: "％", d: 1, f: ratio("c_dep") },
-  { k: "c_fac", l: "設備関係費比率", u: "％", d: 1, f: ratio("c_fac") },
-  { k: "c_exp", l: "経費比率", u: "％", d: 1, f: ratio("c_exp") },
-  { k: "rev_in", l: "入院診療収益の割合", u: "％", d: 1, f: ratio("rev_in") },
-  { k: "rev_out", l: "外来診療収益の割合", u: "％", d: 1, f: ratio("rev_out") },
-  { k: "rev", l: "医業収益（1施設当たり）", u: "百万円", d: 0, f: (e, i) => (e.v.rev && e.v.rev[i] != null ? e.v.rev[i] / 1000 : null) },
-  { k: "revbed", l: "1床当たり医業収益", u: "千円", d: 0, f: (e, i) => (e.v.rev && e.v.rev[i] != null && bedsOf(e, i) ? e.v.rev[i] / bedsOf(e, i) : null) },
-  { k: "beds", l: "平均病床数", u: "床", d: 0, f: (e, i) => bedsOf(e, i) },
-  { k: "n", l: "施設数", u: "施設", d: 0, f: (e) => e.n },
+  { ...R_("pl", "損益率", "収益性") }, { ...R_("tpl", "総損益率（補助金等を含む）", "収益性") },
+  R_("tpl_excovid", "総損益率（コロナ関連補助金を除く）", "収益性"),
+  R_("orev", "その他の医業・介護関連収益の割合", "収益性"), R_("orev_covid", "　うちコロナ関連補助金", "収益性"),
+  R_("orev_shogu", "　うち看護職員等処遇改善事業補助金", "収益性"), R_("ocost", "その他の医業・介護関連費用の割合", "収益性"),
+  R_("cost", "医業・介護費用の合計", "費用の比率"),
+  R_("c_salary", "給与費比率", "費用の比率"), R_("c_drug", "医薬品費比率", "費用の比率"), R_("c_food", "給食用材料費比率", "費用の比率"),
+  R_("c_material", "診療材料費比率", "費用の比率"), R_("c_outsource", "委託費比率", "費用の比率"),
+  R_("c_out_food", "　うち給食委託費", "費用の比率"), R_("c_out_staff", "　うち人材委託費", "費用の比率"), R_("c_out_fee", "　うち紹介手数料", "費用の比率"),
+  R_("c_dep", "減価償却費比率", "費用の比率"), R_("c_dep_bldg", "　うち建物減価償却費", "費用の比率"), R_("c_dep_equip", "　うち医療機器減価償却費", "費用の比率"),
+  R_("c_fac", "設備関係費比率", "費用の比率"), R_("c_fac_lease", "　うち設備機器賃借料", "費用の比率"), R_("c_fac_medlease", "　うち医療機器賃借料", "費用の比率"),
+  R_("c_exp", "経費比率", "費用の比率"), R_("c_exp_util", "　うち水道光熱費", "費用の比率"), R_("c_other", "その他の医業・介護費用比率", "費用の比率"),
+  R_("rev_in", "入院診療収益の割合", "収益の構成"), R_("rev_in_ins", "　うち入院の保険診療収益", "収益の構成"),
+  R_("rev_room", "特別の療養環境収益の割合", "収益の構成"), R_("rev_out", "外来診療収益の割合", "収益の構成"),
+  R_("rev_out_ins", "　うち外来の保険診療収益", "収益の構成"), R_("rev_other", "その他の医業収益の割合", "収益の構成"),
+  R_("care", "介護収益の割合", "収益の構成"),
+  { k: "rev", l: "医業収益（1施設当たり）", u: "百万円", d: 0, g: "規模", f: (e, i) => (e.v.rev && e.v.rev[i] != null ? e.v.rev[i] / 1000 : null) },
+  { k: "revbed", l: "1床当たり医業収益", u: "千円", d: 0, g: "規模", f: (e, i) => (e.v.rev && e.v.rev[i] != null && bedsOf(e, i) ? e.v.rev[i] / bedsOf(e, i) : null) },
+  { k: "beds", l: "平均病床数", u: "床", d: 0, g: "規模", f: (e, i) => bedsOf(e, i) },
+  { k: "n", l: "施設数", u: "施設", d: 0, g: "規模", f: (e) => e.n },
 ];
+// 見出し用の名前（「うち〇〇」は「〇〇比率」「〇〇の割合」に言い換える）
+const indName = (x) => { const m = x.l.match(/^\s*うち(.+)$/); const l = m ? m[1] + (x.g === "費用の比率" ? "比率" : "の割合") : x.l.trim(); return `${l}（${x.u}）`; };
 const indOf = (k) => IND.find((x) => x.k === k) || IND[0];
 const PEER_COLS = ["n", "beds", "rev", "revbed", "pl", "tpl", "c_salary", "c_drug", "c_material", "c_outsource", "c_dep"];
 
@@ -138,11 +145,17 @@ function renderTrend() {
   const ps = peers(), ind = indOf(S.ind), o = baseOpt();
   $("trend-cond").textContent = `集計${S.shukei}・国公立を${S.scope === "ex" ? "除く" : "含む"}`;
   if (!ROUNDS.some((r) => r.fy[0] === S.from)) S.from = ROUNDS[0].fy[0];
-  $("trend-title").textContent = `${ind.l}（${ind.u}）の推移`;
+  $("trend-title").textContent = `${indName(ind)}の推移`;
   $("trend-legend").innerHTML = ps.map((p) => `<button type="button" class="lg" data-k="${p.kind}" aria-pressed="${!S.hide.has(p.kind)}"><span class="sw" style="background:var(${p.color})"></span>${esc(p.label)}</button>`).join("");
   const narrow = $("ch-trend").clientWidth < 560, shown = ps.filter((p) => !S.hide.has(p.kind));
-  const RS = ROUNDS.filter((r) => r.fy[0] >= S.from), fys = RS.flatMap((r) => r.fy);
+  let RS = ROUNDS.filter((r) => r.fy[0] >= S.from);
   fillSel($("trend-from"), ROUNDS.map((r, i) => [String(r.fy[0]), i === 0 ? `全期間（${r.fy[0]}年度〜）` : `${r.fy[0]}年度〜`]), String(RS[0].fy[0]));
+  const ref = IDX[keyOf({ topic: "owner", htype: "一般病院", shukei: S.shukei, scope: "all", sub: "", group: "全体" })];
+  const hasR = (r) => { const e = ref && ref.r[String(r.round)]; return e && (typeof ind.f(e, 0) === "number" || typeof ind.f(e, 1) === "number"); };
+  const has = RS.filter(hasR), full = has.length === RS.length;
+  if (has.length) RS = RS.slice(RS.indexOf(has[0]), RS.indexOf(has[has.length - 1]) + 1);
+  $("trend-gap").textContent = full ? "" : has.length ? `この項目は${has.map((r) => `第${r.round}回`).join("・")}（${has[0].fy[0]}〜${has[has.length - 1].fy[1]}年度）のみ集計されているため、その期間だけを表示しています。` : "選んだ期間にはこの項目の集計がありません。";
+  const fys = RS.flatMap((r) => r.fy);
   const series = shown.map((p) => {
     const data = [];
     RS.forEach((r) => { [0, 1].forEach((i) => { const v = val(p.s, String(r.round), i, ind); data.push([r.fy[i], typeof v === "number" ? v : null]); }); data.push([r.fy[1] + 0.5, null]); });
@@ -155,7 +168,7 @@ function renderTrend() {
       formatter: (ps_) => { const pts = ps_.filter((p) => p.value[1] != null && Number.isInteger(p.value[0])); if (!pts.length) return ""; const y = pts[0].value[0]; const r = RS.find((x) => x.fy.includes(y));
         return `<b>${fyLabel(y)}</b> <span style="color:${css("--text-muted")}">第${r.round}回調査</span><br>` + pts.map((p) => `${p.marker}${esc(p.seriesName)}　<b>${fmt(p.value[1], ind.d)}</b>${ind.u}`).join("<br>"); } },
     xAxis: { type: "value", min: fys[0] - 1, max: fys[fys.length - 1] + 1, interval: 1, ...o._ax, splitLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => (v < fys[0] || v > fys[fys.length - 1] ? "" : !narrow || fys.length <= 8 ? String(v) : RS.some((r) => r.fy[0] === v) ? "'" + String(v).slice(2) : ""), interval: 0, hideOverlap: false }, name: "年度", nameLocation: "middle", nameGap: 26, nameTextStyle: { color: css("--text-muted"), fontSize: 12 } },
-    yAxis: { type: "value", scale: true, ...o._ax, axisLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => fmt(v, ind.u === "％" ? 0 : 0) } },
+    yAxis: { type: "value", scale: true, ...o._ax, axisLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => fmt(v, Number.isInteger(Math.round(v * 1e6) / 1e6) ? 0 : 1) } },
     series }, true);
   const head = ["病院群", ...fys.map((y) => `${y}`)];
   table($("trend-table"), head, ps.map((p) => ({ cells: [esc(p.label), ...RS.flatMap((r) => [0, 1].map((i) => cell(val(p.s, String(r.round), i, ind), ind)))] })));
@@ -188,7 +201,7 @@ function renderAxis() {
   const list = axisList(), ind = indOf(S.ind), o = baseOpt(), R = roundOf(S.round);
   const axisName = AXES.find((x) => x[0] === S.axis)[1];
   $("axis-cond").textContent = condText(); $("cost-cond").textContent = condText();
-  $("axis-title").textContent = `${axisName}別の${ind.l}（${ind.u}）`;
+  $("axis-title").textContent = `${axisName}別の${indName(ind)}`;
   const selfAny = list.some(isSelf);
   $("axis-legend").innerHTML = selfAny ? `<span><span class="sw sw-self"></span>自院が該当する区分</span><span><span class="sw" style="background:var(--other-strong)"></span>その他の区分</span>` : "";
   const names = list.map((s) => s.group), vals = list.map((s) => val(s, S.round, S.fy, ind));
@@ -311,7 +324,8 @@ async function main() {
   setSeg("shukei-seg", S.shukei); setSeg("scope-seg", S.scope);
   $("round").addEventListener("change", (e) => { S.round = e.target.value; renderAll(); });
   // 指標は上部・推移・区分別の3か所から選べる（どこで変えても全体に反映）
-  ["ind", "trend-ind", "axis-ind"].forEach((id) => { fillSel($(id), IND.map((x) => [x.k, `${x.l}（${x.u}）`]), S.ind);
+  const indHtml = [...new Set(IND.map((x) => x.g))].map((g) => `<optgroup label="${g}">${IND.filter((x) => x.g === g).map((x) => `<option value="${x.k}">${esc(x.l)}（${x.u}）</option>`).join("")}</optgroup>`).join("");
+  ["ind", "trend-ind", "axis-ind"].forEach((id) => { $(id).innerHTML = indHtml; $(id).value = S.ind;
     $(id).addEventListener("change", (e) => { S.ind = e.target.value; renderAll(); }); });
   onSeg("fy-seg", (v) => { S.fy = +v; renderAll(); });
   onSeg("shukei-seg", (v) => { S.shukei = +v; renderAll(); });
