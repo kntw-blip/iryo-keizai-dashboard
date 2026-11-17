@@ -12,12 +12,22 @@ const RYO = { ryo60: "療養病床60％以上", ryo0: "療養病床なし", zais
 const AXES = [["owner", "開設者"], ["beds", "病床規模"], ["nyuin", "入院基本料"], ["func", "病院機能"], ["ryo", "療養病床・在宅"], ["region", "地域加算の級地"]];
 const ratio = (k) => (e, i) => (e.v[k] ? e.v[k][2 + i] : null);
 const bedsOf = (e, i) => (e.beds ? (e.beds[i] ?? e.beds[0]) : null);
+/** 複数科目の金額を合算し、医業収益＋介護収益に対する割合（％）にする。いずれかの科目が無ければ null。 */
+const sumRatio = (keys) => (e, i) => {
+  const v = e.v; if (!v.rev || v.rev[i] == null) return null;
+  const base = v.rev[i] + ((v.care && v.care[i]) || 0); if (!base) return null;
+  let t = 0; for (const k of keys) { if (!v[k] || v[k][i] == null) return null; t += v[k][i]; }
+  return (t / base) * 100;
+};
 const R_ = (k, l, g) => ({ k, l, u: "％", d: 1, g, f: ratio(k) });
 const IND = [
   { ...R_("pl", "損益率", "収益性") }, { ...R_("tpl", "総損益率（補助金等を含む）", "収益性") },
   R_("tpl_excovid", "総損益率（コロナ関連補助金を除く）", "収益性"),
   R_("orev", "その他の医業・介護関連収益の割合", "収益性"), R_("orev_covid", "　うちコロナ関連補助金", "収益性"),
   R_("orev_shogu", "　うち看護職員等処遇改善事業補助金", "収益性"), R_("ocost", "その他の医業・介護関連費用の割合", "収益性"),
+  { k: "mat", l: "材料費比率（医薬品費＋診療材料費）", u: "％", d: 1, g: "合算した比率", f: sumRatio(["c_drug", "c_material"]) },
+  { k: "labor", l: "人件費比率（給与費＋委託費）", u: "％", d: 1, g: "合算した比率", f: sumRatio(["c_salary", "c_outsource"]) },
+  { k: "matlabor", l: "材料費＋人件費比率", u: "％", d: 1, g: "合算した比率", f: sumRatio(["c_drug", "c_material", "c_salary", "c_outsource"]) },
   R_("cost", "医業・介護費用の合計", "費用の比率"),
   R_("c_salary", "給与費比率", "費用の比率"), R_("c_drug", "医薬品費比率", "費用の比率"), R_("c_food", "給食用材料費比率", "費用の比率"),
   R_("c_material", "診療材料費比率", "費用の比率"), R_("c_outsource", "委託費比率", "費用の比率"),
