@@ -265,7 +265,7 @@ function renderSelf() {
   $("self-name").textContent = h.name;
   $("self-meta").textContent = [h.pref, h.beds ? `${fmt(h.beds, 0)}床` : null, h.kihon, { DPC: "DPC対象病院", 準備: "DPC準備病院", 出来高: "出来高算定病院" }[h.type], h.corp ? `開設者：${h.corp}` : "開設者不明"].filter(Boolean).join("・");
 }
-function renderAll() { renderSelf(); renderProfSelects(); renderRound(); renderPeer(); renderTrend(); renderAxis(); syncUrl(); }
+function renderAll() { ["ind", "trend-ind", "axis-ind"].forEach((id) => { $(id).value = S.ind; }); renderSelf(); renderProfSelects(); renderRound(); renderPeer(); renderTrend(); renderAxis(); syncUrl(); }
 function syncUrl() {
   const q = new URLSearchParams();
   if (S.h) q.set("h", S.h.id);
@@ -307,11 +307,12 @@ async function main() {
   $("latest-round").textContent = `第${last.round}回`; $("foot-latest").textContent = `第${last.round}回`; $("fy-range").textContent = `${ROUNDS[0].fy[0]}〜${last.fy[1]}`;
   $("foot-built").textContent = `データ作成日：${D.meta.built}`;
   fillSel($("round"), ROUNDS.slice().reverse().map((r) => [String(r.round), `第${r.round}回（${r.year}年実施）`]), S.round);
-  fillSel($("ind"), IND.map((x) => [x.k, `${x.l}（${x.u}）`]), S.ind);
   $("axis-seg").innerHTML = AXES.map(([k, l]) => `<button type="button" role="radio" data-v="${k}" aria-checked="${k === S.axis}">${l}</button>`).join("");
   setSeg("shukei-seg", S.shukei); setSeg("scope-seg", S.scope);
   $("round").addEventListener("change", (e) => { S.round = e.target.value; renderAll(); });
-  $("ind").addEventListener("change", (e) => { S.ind = e.target.value; renderAll(); });
+  // 指標は上部・推移・区分別の3か所から選べる（どこで変えても全体に反映）
+  ["ind", "trend-ind", "axis-ind"].forEach((id) => { fillSel($(id), IND.map((x) => [x.k, `${x.l}（${x.u}）`]), S.ind);
+    $(id).addEventListener("change", (e) => { S.ind = e.target.value; renderAll(); }); });
   onSeg("fy-seg", (v) => { S.fy = +v; renderAll(); });
   onSeg("shukei-seg", (v) => { S.shukei = +v; renderAll(); });
   onSeg("scope-seg", (v) => { S.scope = v; renderAll(); });
