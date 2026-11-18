@@ -75,6 +75,7 @@
 <nav class="toc" aria-label="目次">
   <a href="#sec-peer">同規模・同機能の病院群</a>
   <a href="#sec-trend">推移</a>
+  <a href="#sec-growth">収益と費用の伸び率</a>
   <a href="#sec-axis">区分別の比較</a>
   <a href="#sec-cost">費用構造</a>
   <a href="#sec-pl">損益明細</a>
@@ -105,6 +106,37 @@
     <p class="small muted">凡例をタップすると、その病院群の線を消したり戻したりできます。各回の調査は直近2事業年度を同じ病院で比べています。点線の縦線は調査回の境目です。回が変わると回答病院が入れ替わるため、境目をまたぐ線の変化には病院の入れ替わりの影響が含まれます。</p>
     <details class="tv"><summary>表で見る</summary><div class="tablewrap"><table id="trend-table"></table></div></details>
   </div>
+</section>
+
+<section class="sec" id="sec-growth">
+  <h2>収益と費用の伸び率 <span class="note" id="growth-cond"></span>
+    <button type="button" class="ghost small" id="growth-csv">CSV</button></h2>
+  <div class="pick-row" style="margin-bottom:12px">
+    <div class="f-item">
+      <span class="f-label" id="grev-label">収益</span>
+      <div class="seg" id="grev-seg" role="radiogroup" aria-labelledby="grev-label">
+        <button type="button" role="radio" data-v="total" aria-checked="true">医業＋介護</button>
+        <button type="button" role="radio" data-v="med" aria-checked="false">医業収益</button>
+        <button type="button" role="radio" data-v="care" aria-checked="false">介護収益</button>
+      </div>
+    </div>
+    <div class="f-item">
+      <span class="f-label" id="gsub-label">補助金等</span>
+      <div class="seg" id="gsub-seg" role="radiogroup" aria-labelledby="gsub-label">
+        <button type="button" role="radio" data-v="0" aria-checked="true">含まない</button>
+        <button type="button" role="radio" data-v="1" aria-checked="false">含む</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3 id="growth-title"></h3>
+    <div class="legend trend-key" id="growth-key"></div>
+    <div class="legend" id="growth-legend"></div>
+    <div class="chart tall" id="ch-growth" role="img" aria-label="病院群ごとの収益と費用の伸び率"></div>
+    <p class="small muted">各回の調査で、同じ病院の前々年度→前年度の伸び率です（回をまたいだ比較ではないため、病院の入れ替わりの影響を受けません）。△が●より上にある年は、費用の伸びが収益の伸びを上回っています。費用は医業・介護費用（調査では医業と介護に分かれていません）。補助金等は「その他の医業・介護関連収益」で、公立病院では他会計からの繰入金なども含みます。介護収益は金額が小さく、伸び率が大きく振れやすい点に注意してください。表示期間は推移と共通です。</p>
+  </div>
+  <h3 style="margin-top:14px" id="growth-tbl-title"></h3>
+  <div class="tablewrap"><table id="growth-table"></table></div>
 </section>
 
 <section class="sec" id="sec-axis">
