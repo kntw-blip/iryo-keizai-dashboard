@@ -3,7 +3,7 @@
    data/hosp.json … 自院検索用の病院マスタ */
 "use strict";
 const $ = (id) => document.getElementById(id);
-const S = { h: null, round: null, fy: 1, shukei: 1, scope: "all", ind: "pl", axis: "owner", axisSub: "", plKey: "", charts: {}, hide: new Set(), from: 0,
+const S = { h: null, round: null, fy: 1, shukei: 1, scope: "all", ind: "pl", axis: "owner", axisSub: "", plKey: "", charts: {}, hide: new Set(), from: 0, ind2: "",
             prof: { htype: "一般病院", owner: "", bed: "", nyuin: "", func: "", ryo: "" } };
 let D, H, IDX = {}, ROUNDS = [];
 
@@ -152,38 +152,57 @@ function renderPeer() {
 
 /* ---------- 推移 ---------- */
 function renderTrend() {
-  const ps = peers(), ind = indOf(S.ind), o = baseOpt();
+  const ps = peers(), ind = indOf(S.ind), ind2 = S.ind2 ? indOf(S.ind2) : null, o = baseOpt();
   $("trend-cond").textContent = `集計${S.shukei}・国公立を${S.scope === "ex" ? "除く" : "含む"}`;
   if (!ROUNDS.some((r) => r.fy[0] === S.from)) S.from = ROUNDS[0].fy[0];
-  $("trend-title").textContent = `${indName(ind)}の推移`;
+  $("trend-title").textContent = ind2 ? `${indName(ind)}（左軸）と${indName(ind2)}（右軸）の推移` : `${indName(ind)}の推移`;
   $("trend-legend").innerHTML = ps.map((p) => `<button type="button" class="lg" data-k="${p.kind}" aria-pressed="${!S.hide.has(p.kind)}"><span class="sw" style="background:var(${p.color})"></span>${esc(p.label)}</button>`).join("");
+  const keySvg = (dash, tri) => `<svg width="34" height="12" aria-hidden="true"><line x1="1" y1="6" x2="33" y2="6" stroke="currentColor" stroke-width="2" ${dash ? 'stroke-dasharray="2 3"' : ""}/>${tri ? '<path d="M17 1.5 L21.5 10 L12.5 10 Z" fill="var(--surface-1)" stroke="currentColor" stroke-width="1.5"/>' : '<circle cx="17" cy="6" r="3.5" fill="currentColor"/>'}</svg>`;
+  $("trend-key").innerHTML = ind2 ? `<span>${keySvg(false, false)}${esc(indName(ind))}（左軸）</span><span>${keySvg(true, true)}${esc(indName(ind2))}（右軸）</span>` : "";
+  $("trend-key").hidden = !ind2;
   const narrow = $("ch-trend").clientWidth < 560, shown = ps.filter((p) => !S.hide.has(p.kind));
   let RS = ROUNDS.filter((r) => r.fy[0] >= S.from);
   fillSel($("trend-from"), ROUNDS.map((r, i) => [String(r.fy[0]), i === 0 ? `全期間（${r.fy[0]}年度〜）` : `${r.fy[0]}年度〜`]), String(RS[0].fy[0]));
   const ref = IDX[keyOf({ topic: "owner", htype: "一般病院", shukei: S.shukei, scope: "all", sub: "", group: "全体" })];
-  const hasR = (r) => { const e = ref && ref.r[String(r.round)]; return e && (typeof ind.f(e, 0) === "number" || typeof ind.f(e, 1) === "number"); };
+  const hasI = (x, r) => { const e = ref && ref.r[String(r.round)]; return e && (typeof x.f(e, 0) === "number" || typeof x.f(e, 1) === "number"); };
+  const hasR = (r) => hasI(ind, r) || (ind2 && hasI(ind2, r));
   const has = RS.filter(hasR), full = has.length === RS.length;
   if (has.length) RS = RS.slice(RS.indexOf(has[0]), RS.indexOf(has[has.length - 1]) + 1);
-  $("trend-gap").textContent = full ? "" : has.length ? `この項目は${has.map((r) => `第${r.round}回`).join("・")}（${has[0].fy[0]}〜${has[has.length - 1].fy[1]}年度）のみ集計されているため、その期間だけを表示しています。` : "選んだ期間にはこの項目の集計がありません。";
+  const gaps = [ind, ind2].filter(Boolean).map((x) => { const h = RS.filter((r) => hasI(x, r)); return h.length === RS.length || !h.length ? "" : `${indName(x)}は${h[0].fy[0]}〜${h[h.length - 1].fy[1]}年度（${h.map((r) => `第${r.round}回`).join("・")}）のみ集計されています。`; }).join("");
+  $("trend-gap").textContent = (!has.length ? "選んだ期間にはこの項目の集計がありません。" : !full ? `集計のある${has[0].fy[0]}〜${has[has.length - 1].fy[1]}年度だけを表示しています。` : "") + gaps +
+    (ind2 ? "左右の目盛りは別々です。線の交差や上下の位置関係には意味がありません。" : "");
   const fys = RS.flatMap((r) => r.fy);
   const bounds = RS.slice(1).map((r) => ({ xAxis: r.fy[0] - 0.5 }));
-  const series = shown.map((p, si) => {
+  const mk = (p, x, axis, first) => {
     const data = [];
-    RS.forEach((r) => { [0, 1].forEach((i) => { const v = val(p.s, String(r.round), i, ind); data.push([r.fy[i], typeof v === "number" ? v : null]); }); });
-    const c = css(p.color);
-    return { name: p.label, type: "line", data, connectNulls: true, symbol: "circle", symbolSize: narrow ? 6 : 8, lineStyle: { width: p.kind === "all" ? 2 : 2.5, color: c, type: p.kind === "all" ? "dashed" : "solid" },
-             itemStyle: { color: c, borderColor: css("--surface-1"), borderWidth: narrow ? 1 : 2 }, emphasis: { focus: "series" },
-             markLine: si === 0 && bounds.length ? { silent: true, symbol: "none", label: { show: false }, lineStyle: { color: css("--grid"), width: 1, type: [3, 3] }, data: bounds } : undefined };
-  });
-  chart("ch-trend").setOption({ ...o, grid: { left: narrow ? 40 : 56, right: narrow ? 8 : 24, top: 16, bottom: 40 },
+    RS.forEach((r) => { [0, 1].forEach((i) => { const v = val(p.s, String(r.round), i, x); data.push([r.fy[i], typeof v === "number" ? v : null]); }); });
+    const c = css(p.color), sec = axis === 1;
+    return { id: `${axis}|${p.kind}`, name: p.label, type: "line", yAxisIndex: axis, data, connectNulls: true,
+             symbol: sec ? "emptyTriangle" : "circle", symbolSize: sec ? (narrow ? 7 : 9) : (narrow ? 6 : 8),
+             lineStyle: { width: sec ? 2 : p.kind === "all" ? 2 : 2.5, color: c, type: sec ? [2, 4] : p.kind === "all" ? "dashed" : "solid" },
+             itemStyle: { color: c, borderColor: sec ? c : css("--surface-1"), borderWidth: sec ? 1.5 : narrow ? 1 : 2 }, emphasis: { focus: "series" },
+             markLine: first && bounds.length ? { silent: true, symbol: "none", label: { show: false }, lineStyle: { color: css("--grid"), width: 1, type: [3, 3] }, data: bounds } : undefined };
+  };
+  const series = [...shown.map((p, si) => mk(p, ind, 0, si === 0)), ...(ind2 ? shown.map((p) => mk(p, ind2, 1, false)) : [])];
+  const yFmt = (v) => fmt(v, Number.isInteger(Math.round(v * 1e6) / 1e6) ? 0 : 1);
+  const yBase = { type: "value", scale: true, ...o._ax, axisLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: yFmt },
+                  nameTextStyle: { color: css("--text-secondary"), fontSize: 11 }, nameGap: 10 };
+  const yAxis = ind2 ? [{ ...yBase, name: `${narrow ? "" : "左："}${ind.u}`, nameLocation: "end" },
+                        { ...yBase, name: `${narrow ? "" : "右："}${ind2.u}`, nameLocation: "end", splitLine: { show: false } }] : yBase;
+  const tipRow = (p, x) => `${p.marker}${esc(p.seriesName)}　<b>${fmt(p.value[1], x.d)}</b>${x.u}`;
+  chart("ch-trend").setOption({ ...o, grid: { left: narrow ? 40 : 56, right: ind2 ? (narrow ? 40 : 56) : narrow ? 8 : 24, top: ind2 ? 30 : 16, bottom: 40 },
     tooltip: { ...o.tooltip, trigger: "axis", axisPointer: { type: "line", snap: true, lineStyle: { color: css("--axis") } },
       formatter: (ps_) => { const pts = ps_.filter((p) => p.value[1] != null && Number.isInteger(p.value[0])); if (!pts.length) return ""; const y = pts[0].value[0]; const r = RS.find((x) => x.fy.includes(y));
-        return `<b>${fyLabel(y)}</b> <span style="color:${css("--text-muted")}">第${r.round}回調査</span><br>` + pts.map((p) => `${p.marker}${esc(p.seriesName)}　<b>${fmt(p.value[1], ind.d)}</b>${ind.u}`).join("<br>"); } },
+        const a = pts.filter((p) => String(p.seriesId).startsWith("0|")), b = pts.filter((p) => String(p.seriesId).startsWith("1|"));
+        const head = `<b>${fyLabel(y)}</b> <span style="color:${css("--text-muted")}">第${r.round}回調査</span>`;
+        if (!ind2) return head + "<br>" + a.map((p) => tipRow(p, ind)).join("<br>");
+        const sub = (t) => `<div style="margin-top:6px;color:${css("--text-secondary")};font-size:11px">${esc(t)}</div>`;
+        return head + (a.length ? sub(indName(ind) + "（左軸）") + a.map((p) => tipRow(p, ind)).join("<br>") : "") + (b.length ? sub(indName(ind2) + "（右軸）") + b.map((p) => tipRow(p, ind2)).join("<br>") : ""); } },
     xAxis: { type: "value", min: fys[0] - 1, max: fys[fys.length - 1] + 1, interval: 1, ...o._ax, splitLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => (v < fys[0] || v > fys[fys.length - 1] ? "" : !narrow || fys.length <= 8 ? String(v) : RS.some((r) => r.fy[0] === v) ? "'" + String(v).slice(2) : ""), interval: 0, hideOverlap: false }, name: "年度", nameLocation: "middle", nameGap: 26, nameTextStyle: { color: css("--text-muted"), fontSize: 12 } },
-    yAxis: { type: "value", scale: true, ...o._ax, axisLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => fmt(v, Number.isInteger(Math.round(v * 1e6) / 1e6) ? 0 : 1) } },
-    series }, true);
+    yAxis, series }, true);
   const head = ["病院群", ...fys.map((y) => `${y}`)];
-  table($("trend-table"), head, ps.map((p) => ({ cells: [esc(p.label), ...RS.flatMap((r) => [0, 1].map((i) => cell(val(p.s, String(r.round), i, ind), ind)))] })));
+  const rowsOf = (x, suf) => ps.map((p) => ({ cells: [esc(p.label) + suf, ...RS.flatMap((r) => [0, 1].map((i) => cell(val(p.s, String(r.round), i, x), x)))] }));
+  table($("trend-table"), head, ind2 ? [...rowsOf(ind, `｜${indName(ind)}`), ...rowsOf(ind2, `｜${indName(ind2)}`)] : rowsOf(ind, ""));
 }
 
 /* ---------- 区分別の比較・費用構造 ---------- */
@@ -294,7 +313,7 @@ function renderAll() { ["ind", "trend-ind", "axis-ind"].forEach((id) => { $(id).
 function syncUrl() {
   const q = new URLSearchParams();
   if (S.h) q.set("h", S.h.id);
-  q.set("round", S.round); q.set("fy", S.fy); q.set("shukei", S.shukei); q.set("scope", S.scope); q.set("ind", S.ind); q.set("axis", S.axis); if (S.from > ROUNDS[0].fy[0]) q.set("from", S.from);
+  q.set("round", S.round); q.set("fy", S.fy); q.set("shukei", S.shukei); q.set("scope", S.scope); q.set("ind", S.ind); q.set("axis", S.axis); if (S.from > ROUNDS[0].fy[0]) q.set("from", S.from); if (S.ind2) q.set("ind2", S.ind2);
   history.replaceState(null, "", "?" + q.toString() + location.hash);
 }
 function pick(h) { S.h = h; S.prof = h ? profFromHosp(h) : S.prof; S._subTouched = false; S._plTouched = false; $("q").value = h ? h.name : ""; renderAll(); }
@@ -339,6 +358,9 @@ async function main() {
   const indHtml = [...new Set(IND.map((x) => x.g))].map((g) => `<optgroup label="${g}">${IND.filter((x) => x.g === g).map((x) => `<option value="${x.k}">${esc(x.l)}（${x.u}）</option>`).join("")}</optgroup>`).join("");
   ["ind", "trend-ind", "axis-ind"].forEach((id) => { $(id).innerHTML = indHtml; $(id).value = S.ind;
     $(id).addEventListener("change", (e) => { S.ind = e.target.value; renderAll(); }); });
+  S.ind2 = IND.some((x) => x.k === q.get("ind2")) ? q.get("ind2") : "";
+  $("trend-ind2").innerHTML = `<option value="">なし</option>` + indHtml; $("trend-ind2").value = S.ind2;
+  $("trend-ind2").addEventListener("change", (e) => { S.ind2 = e.target.value; renderTrend(); syncUrl(); });
   onSeg("fy-seg", (v) => { S.fy = +v; renderAll(); });
   onSeg("shukei-seg", (v) => { S.shukei = +v; renderAll(); });
   onSeg("scope-seg", (v) => { S.scope = v; renderAll(); });

@@ -92,11 +92,13 @@
 <section class="sec" id="sec-trend">
   <h2>推移 <span class="note" id="trend-cond"></span></h2>
   <div class="pick-row" style="margin-bottom:12px">
-    <div class="f-item"><label for="trend-ind">指標</label><select id="trend-ind" class="sel auto"></select></div>
+    <div class="f-item"><label for="trend-ind">指標（左軸）</label><select id="trend-ind" class="sel auto"></select></div>
+    <div class="f-item"><label for="trend-ind2">比較する指標（右軸）</label><select id="trend-ind2" class="sel auto"></select></div>
     <div class="f-item"><label for="trend-from">表示期間</label><select id="trend-from" class="sel auto"></select></div>
   </div>
   <div class="card">
     <h3 id="trend-title"></h3>
+    <div class="legend trend-key" id="trend-key" hidden></div>
     <div class="legend" id="trend-legend"></div>
     <p class="small muted" id="trend-gap"></p>
     <div class="chart tall" id="ch-trend" role="img" aria-label="病院群ごとの指標の推移"></div>

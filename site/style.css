@@ -271,3 +271,7 @@ details.tv { margin-top: 6px; } details.tv summary { cursor: pointer; font-size:
 }
 
 #trend-gap:empty { display: none; }
+
+.trend-key { color: var(--text-primary); font-size: 12px; gap: 4px 18px; }
+.trend-key span { display: inline-flex; align-items: center; gap: 6px; }
+.trend-key[hidden] { display: none; }
