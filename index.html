@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>医療経済実態調査ダッシュボード（病院）</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="viz-root">
+<header class="page-head">
+  <h1>医療経済実態調査ダッシュボード <span class="sub">病院・第19回〜<span id="latest-round"></span>（<span id="fy-range"></span>年度）</span></h1>
+  <p class="lead">自院を選ぶと、開設者・病床規模・入院基本料・機能が同じ病院群の損益状況に絞って表示します。個別病院の決算ではなく、調査に回答した病院群の1施設当たり平均です。</p>
+</header>
+
+<section class="filters" id="filters" aria-label="表示条件">
+  <div class="f-item f-search">
+    <label for="q">自院</label>
+    <div class="combo">
+      <input id="q" type="search" autocomplete="off" placeholder="病院名で検索（例：日赤、市民病院）" role="combobox" aria-expanded="false" aria-controls="q-list">
+      <ul id="q-list" class="combo-list" role="listbox" hidden></ul>
+    </div>
+  </div>
+  <div class="f-item">
+    <label for="round">調査回</label>
+    <select id="round" class="sel auto"></select>
+  </div>
+  <div class="f-item">
+    <span class="f-label" id="fy-label">年度</span>
+    <div class="seg" id="fy-seg" role="radiogroup" aria-labelledby="fy-label"></div>
+  </div>
+  <div class="f-item">
+    <span class="f-label" id="shukei-label">集計</span>
+    <div class="seg" id="shukei-seg" role="radiogroup" aria-labelledby="shukei-label">
+      <button type="button" role="radio" data-v="1" aria-checked="true" title="介護収益が2％未満の病院">集計1</button>
+      <button type="button" role="radio" data-v="2" aria-checked="false" title="回答した全ての病院">集計2</button>
+    </div>
+  </div>
+  <div class="f-item">
+    <span class="f-label" id="scope-label">国公立</span>
+    <div class="seg" id="scope-seg" role="radiogroup" aria-labelledby="scope-label">
+      <button type="button" role="radio" data-v="all" aria-checked="true">含む</button>
+      <button type="button" role="radio" data-v="ex" aria-checked="false">除く</button>
+    </div>
+  </div>
+  <div class="f-item">
+    <label for="ind">指標</label>
+    <select id="ind" class="sel auto"></select>
+  </div>
+  <div class="f-item f-theme">
+    <button type="button" class="ghost" id="theme-btn" aria-label="表示の明暗を切り替え">明暗</button>
+  </div>
+</section>
+
+<section class="selfcard" id="selfcard" hidden>
+  <div>
+    <h2 id="self-name"></h2>
+    <p class="muted" id="self-meta"></p>
+  </div>
+  <button type="button" class="ghost" id="self-clear">選択を解除</button>
+</section>
+
+<section class="card" id="prof-card" style="margin-top:14px">
+  <h3>比較に使う区分 <span class="note" id="prof-note">自院を選ぶと自動で入ります。違っていれば直してください。</span></h3>
+  <div class="prof">
+    <div class="f-item"><label for="p-htype">病院種別</label><select id="p-htype" class="sel"></select></div>
+    <div class="f-item"><label for="p-owner">開設者</label><select id="p-owner" class="sel"></select></div>
+    <div class="f-item"><label for="p-bed">病床規模</label><select id="p-bed" class="sel"></select></div>
+    <div class="f-item"><label for="p-nyuin">入院基本料</label><select id="p-nyuin" class="sel"></select></div>
+    <div class="f-item"><label for="p-func">病院機能</label><select id="p-func" class="sel"></select></div>
+    <div class="f-item"><label for="p-ryo">療養病床・在宅</label><select id="p-ryo" class="sel"></select></div>
+  </div>
+</section>
+
+<nav class="toc" aria-label="目次">
+  <a href="#sec-peer">同規模・同機能の病院群</a>
+  <a href="#sec-trend">推移</a>
+  <a href="#sec-amt">収益と費用の金額</a>
+  <a href="#sec-axis">区分別の比較</a>
+  <a href="#sec-cost">費用構造</a>
+  <a href="#sec-pl">損益明細</a>
+  <a href="#sec-note">データについて</a>
+</nav>
+
+<section class="sec" id="sec-peer">
+  <h2>同規模・同機能の病院群 <span class="note" id="peer-cond"></span>
+    <button type="button" class="ghost small" id="peer-csv">CSV</button></h2>
+  <p class="hero" id="peer-hero"></p>
+  <div class="tablewrap"><table id="peer-table"></table></div>
+  <p class="small muted">金額は1施設当たり。比率は医業収益＋介護収益に対する割合。＊は施設数が少なく非公表、–は該当なし。</p>
+</section>
+
+<section class="sec" id="sec-trend">
+  <h2>推移 <span class="note" id="trend-cond"></span></h2>
+  <div class="pick-row" style="margin-bottom:12px">
+    <div class="f-item"><label for="trend-ind">指標（左軸）</label><select id="trend-ind" class="sel auto"></select></div>
+    <div class="f-item"><label for="trend-ind2">比較する指標（右軸）</label><select id="trend-ind2" class="sel auto"></select></div>
+    <div class="f-item"><label for="trend-from">表示期間</label><select id="trend-from" class="sel auto"></select></div>
+  </div>
+  <div class="card">
+    <h3 id="trend-title"></h3>
+    <div class="legend trend-key" id="trend-key" hidden></div>
+    <div class="legend" id="trend-legend"></div>
+    <p class="small muted" id="trend-gap"></p>
+    <div class="chart tall" id="ch-trend" role="img" aria-label="病院群ごとの指標の推移"></div>
+    <p class="small muted">凡例をタップすると、その病院群の線を消したり戻したりできます。各回の調査は直近2事業年度を同じ病院で比べています。点線の縦線は調査回の境目です。回が変わると回答病院が入れ替わるため、境目をまたぐ線の変化には病院の入れ替わりの影響が含まれます。</p>
+    <details class="tv"><summary>表で見る</summary><div class="tablewrap"><table id="trend-table"></table></div></details>
+  </div>
+</section>
+
+<section class="sec" id="sec-amt">
+  <h2>収益と費用の金額 <span class="note" id="amt-cond"></span>
+    <button type="button" class="ghost small" id="amt-csv">CSV</button></h2>
+  <div class="pick-row" style="margin-bottom:12px">
+    <div class="f-item">
+      <span class="f-label" id="grev-label">収益</span>
+      <div class="seg" id="grev-seg" role="radiogroup" aria-labelledby="grev-label">
+        <button type="button" role="radio" data-v="total" aria-checked="true">医業＋介護</button>
+        <button type="button" role="radio" data-v="med" aria-checked="false">医業収益</button>
+        <button type="button" role="radio" data-v="care" aria-checked="false">介護収益</button>
+      </div>
+    </div>
+    <div class="f-item">
+      <span class="f-label" id="gsub-label">補助金等</span>
+      <div class="seg" id="gsub-seg" role="radiogroup" aria-labelledby="gsub-label">
+        <button type="button" role="radio" data-v="0" aria-checked="true">含まない</button>
+        <button type="button" role="radio" data-v="1" aria-checked="false">含む</button>
+      </div>
+    </div>
+    <div class="f-item">
+      <span class="f-label" id="gunit-label">単位</span>
+      <div class="seg" id="gunit-seg" role="radiogroup" aria-labelledby="gunit-label">
+        <button type="button" role="radio" data-v="fac" aria-checked="true">1施設当たり</button>
+        <button type="button" role="radio" data-v="bed" aria-checked="false">1床当たり</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3 id="amt-title"></h3>
+    <div class="legend trend-key" id="amt-key"></div>
+    <div class="legend" id="amt-legend"></div>
+    <p class="small muted" id="amt-warn"></p>
+    <div class="chart tall" id="ch-amt" role="img" aria-label="病院群ごとの収益と費用の金額の推移"></div>
+    <p class="small muted" id="amt-note"></p>
+  </div>
+  <h3 style="margin-top:14px" id="amt-tbl-title"></h3>
+  <div class="tablewrap"><table id="amt-table"></table></div>
+</section>
+
+<section class="sec" id="sec-axis">
+  <h2>区分別の比較 <span class="note" id="axis-cond"></span></h2>
+  <div class="pick-row" style="margin-bottom:12px">
+    <div class="f-item">
+      <span class="f-label" id="axis-label">比較軸</span>
+      <div class="seg" id="axis-seg" role="radiogroup" aria-labelledby="axis-label"></div>
+    </div>
+    <div class="f-item"><label for="axis-ind">指標</label><select id="axis-ind" class="sel auto"></select></div>
+    <div class="f-item" id="axis-sub-wrap" hidden>
+      <label for="axis-sub">対象</label>
+      <select id="axis-sub" class="sel"></select>
+    </div>
+  </div>
+  <div class="card">
+    <h3 id="axis-title"></h3>
+    <div class="legend" id="axis-legend"></div>
+    <div class="chart tall" id="ch-axis" role="img" aria-label="区分別の指標"></div>
+  </div>
+  <div class="tablewrap"><table id="axis-table"></table></div>
+</section>
+
+<section class="sec" id="sec-cost">
+  <h2>費用構造 <span class="note" id="cost-cond"></span></h2>
+  <div class="card">
+    <h3>医業・介護費用の内訳（収益に対する割合）</h3>
+    <div class="legend" id="cost-legend"></div>
+    <div class="chart tall" id="ch-cost" role="img" aria-label="区分別の費用構成"></div>
+    <p class="small muted">縦の線は収益＝100％。棒が線を超えた分が赤字（損益差額がマイナス）です。「その他の費用」は給食用材料費・設備関係費・経費・その他の合計。</p>
+  </div>
+</section>
+
+<section class="sec" id="sec-pl">
+  <h2>損益明細 <span class="note" id="pl-cond"></span>
+    <button type="button" class="ghost small" id="pl-csv">CSV</button></h2>
+  <div class="pick-row" style="margin-bottom:12px">
+    <div class="f-item"><label for="pl-group">病院群</label><select id="pl-group" class="sel"></select></div>
+  </div>
+  <div class="tablewrap"><table id="pl-table"></table></div>
+</section>
+
+<footer class="foot" id="sec-note">
+  <h2>データについて</h2>
+  <ul>
+    <li>出典：厚生労働省「医療経済実態調査（医療機関等調査）」第19回〜<span id="foot-latest"></span>の報告・全体版（e-Stat掲載のExcel）を加工して作成。<span id="foot-built"></span></li>
+    <li>数値は回答病院の1施設当たり平均（単純平均）です。全国の病院構成に合わせた加重平均ではありません。</li>
+    <li>集計1は医業・介護収益に占める介護収益の割合が2％未満の病院、集計2は回答した全ての病院の集計です。</li>
+    <li>損益率＝損益差額（医業収益＋介護収益－医業・介護費用）÷（医業収益＋介護収益）。補助金などは「その他の医業・介護関連収益」に含まれ、総損益差額に反映されます。</li>
+    <li>開設者の区分は報告書の定義によります。国立：国、国立病院機構、国立大学法人、労働者健康安全機構、国立高度専門医療研究センター、地域医療機能推進機構。公立：都道府県立、市町村立、地方独立行政法人立。公的：日赤、済生会、北海道社会事業協会、厚生連、国民健康保険団体連合会。社会保険関係法人：健康保険組合・共済組合とその連合会、国民健康保険組合。その他：公益法人、学校法人、社会福祉法人、医療生協、会社、社会医療法人など。</li>
+    <li>入院基本料別は診療報酬改定で区分が変わっています。7対1・10対1などは第21回まで、急性期一般入院料などは第22回以降です。「急性期一般入院料4〜6」は第23回まで4〜7、「療養病棟入院料1・2」は第24回まで療養病棟入院基本料1・2として集計されています。</li>
+    <li>自院の検索に使う病院の一覧（病院名・病床数・入院基本料・開設者）は、DPC導入の影響評価に係る調査「退院患者調査」の施設概要表と地方厚生局の医療機関一覧をもとにした <a href="https://kntw-blip.github.io/dpc-taiin-dashboard/">DPC退院患者調査ダッシュボード</a> のデータです。開設者の区分は開設者名から機械的に判定した推定で、誤りがありえます。DPC参加・準備・出来高算定の病院のみ検索できます。</li>
+  </ul>
+</footer>
+</div>
+<div class="tip" id="tip" hidden></div>
+<script src="vendor/echarts.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
