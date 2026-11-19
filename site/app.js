@@ -3,7 +3,7 @@
    data/hosp.json … 自院検索用の病院マスタ */
 "use strict";
 const $ = (id) => document.getElementById(id);
-const S = { h: null, round: null, fy: 1, shukei: 1, scope: "all", ind: "pl", axis: "owner", axisSub: "", plKey: "", charts: {}, hide: new Set(), from: 0, ind2: "", grev: "total", gsub: 0,
+const S = { h: null, round: null, fy: 1, shukei: 1, scope: "all", ind: "pl", axis: "owner", axisSub: "", plKey: "", charts: {}, hide: new Set(), from: 0, ind2: "", grev: "total", gsub: 0, gunit: "fac",
             prof: { htype: "一般病院", owner: "", bed: "", nyuin: "", func: "", ryo: "" } };
 let D, H, IDX = {}, ROUNDS = [];
 
@@ -205,62 +205,64 @@ function renderTrend() {
   table($("trend-table"), head, ind2 ? [...rowsOf(ind, `｜${indName(ind)}`), ...rowsOf(ind2, `｜${indName(ind2)}`)] : rowsOf(ind, ""));
 }
 
-/* ---------- 収益と費用の伸び率 ---------- */
+/* ---------- 収益と費用の金額 ---------- */
 const GREV = { total: "医業収益＋介護収益", med: "医業収益", care: "介護収益" };
-const growth = (a, b) => (a == null || b == null || !(a > 0) ? null : (b / a - 1) * 100);
-/** 収益の金額 [前々年度, 前年度]（選択に応じて医業・介護・補助金等を合算）。 */
-function revAmt(e) {
-  const v = e.v, pick = (k, i) => (v[k] ? v[k][i] : null);
-  return [0, 1].map((i) => {
-    const parts = S.grev === "med" ? ["rev"] : S.grev === "care" ? ["care"] : ["rev", "care"];
-    if (S.gsub) parts.push("orev");
-    let t = 0;
-    for (const k of parts) { const x = pick(k, i); if (x == null) { if (k === "care" && S.grev === "total") continue; return null; } t += x; }
-    return t;
-  });
-}
 const revLabel = () => `${GREV[S.grev]}${S.gsub ? "＋補助金等" : ""}`;
-function growthOf(s, r) {
-  const e = s && s.r[String(r)]; if (!e || e.supp || !e.v.cost) return null;
-  const [a, b] = revAmt(e), rg = growth(a, b), cg = growth(e.v.cost[0], e.v.cost[1]);
-  return { rev: rg, cost: cg, diff: rg == null || cg == null ? null : rg - cg, e };
+const costLabel = () => (S.gsub ? "医業・介護費用＋その他の関連費用" : "医業・介護費用");
+const amtUnit = () => (S.gunit === "bed" ? "千円" : "百万円");
+/** 系列 s・回 r・年度 i の {rev, cost, diff}（単位は選択どおり）。秘匿は "*"、無しは null。
+    補助金等を含むときは、収益に「その他の医業・介護関連収益」、費用に「その他の医業・介護関連費用」を加える（差額＝総損益差額）。 */
+function amtOf(s, r, i) {
+  const e = s && s.r[String(r)]; if (!e) return null; if (e.supp) return "*";
+  const v = e.v, pick = (k) => (v[k] ? v[k][i] : null);
+  const rp = S.grev === "med" ? ["rev"] : S.grev === "care" ? ["care"] : ["rev", "care"];
+  const cp = ["cost"]; if (S.gsub) { rp.push("orev"); cp.push("ocost"); }
+  const sum = (ks, optional) => { let t = 0; for (const k of ks) { const x = pick(k); if (x == null) { if (optional.includes(k)) continue; return null; } t += x; } return t; };
+  const rv = sum(rp, S.grev === "total" ? ["care"] : []), cv = sum(cp, ["ocost"]);
+  if (rv == null || cv == null) return null;
+  const div = S.gunit === "bed" ? bedsOf(e, i) : 1000;
+  if (!div) return null;
+  return { rev: rv / div, cost: cv / div, diff: (rv - cv) / div };
 }
-function renderGrowth() {
-  const ps = peers(), o = baseOpt(), narrow = $("ch-growth").clientWidth < 560;
-  const RS = ROUNDS.filter((r) => r.fy[0] >= S.from), cats = RS.map((r) => (narrow ? `'${String(r.fy[0]).slice(2)}→'${String(r.fy[1]).slice(2)}` : `${r.fy[0]}→${r.fy[1]}`));
-  $("growth-cond").textContent = `集計${S.shukei}・国公立を${S.scope === "ex" ? "除く" : "含む"}`;
-  $("growth-title").textContent = `収益（${revLabel()}）と費用の伸び率（％）`;
+function renderAmt() {
+  const ps = peers(), o = baseOpt(), narrow = $("ch-amt").clientWidth < 560, u = amtUnit(), d = 0;
+  const RS = ROUNDS.filter((r) => r.fy[0] >= S.from), fys = RS.flatMap((r) => r.fy);
+  $("amt-cond").textContent = `集計${S.shukei}・国公立を${S.scope === "ex" ? "除く" : "含む"}`;
+  $("amt-title").textContent = `${S.gunit === "bed" ? "1床" : "1施設"}当たりの収益と費用（${u}）`;
   const keySvg = (dash, tri) => `<svg width="34" height="12" aria-hidden="true"><line x1="1" y1="6" x2="33" y2="6" stroke="currentColor" stroke-width="2" ${dash ? 'stroke-dasharray="2 3"' : ""}/>${tri ? '<path d="M17 1.5 L21.5 10 L12.5 10 Z" fill="var(--surface-1)" stroke="currentColor" stroke-width="1.5"/>' : '<circle cx="17" cy="6" r="3.5" fill="currentColor"/>'}</svg>`;
-  $("growth-key").innerHTML = `<span>${keySvg(false, false)}収益の伸び率</span><span>${keySvg(true, true)}費用の伸び率</span>`;
-  $("growth-legend").innerHTML = ps.map((p) => `<button type="button" class="lg" data-k="${p.kind}" aria-pressed="${!S.hide.has(p.kind)}"><span class="sw" style="background:var(${p.color})"></span>${esc(p.label)}</button>`).join("");
-  const shown = ps.filter((p) => !S.hide.has(p.kind));
-  const mk = (p, k, si) => { const c = css(p.color), cost = k === "cost";
-    return { id: `${k}|${p.kind}`, name: p.label, type: "line", data: RS.map((r) => { const g = growthOf(p.s, r.round); return g && g[k] != null ? +g[k].toFixed(2) : null; }), connectNulls: true,
+  $("amt-key").innerHTML = `<span>${keySvg(false, false)}収益（${esc(revLabel())}）</span><span>${keySvg(true, true)}費用（${esc(costLabel())}）</span>`;
+  $("amt-legend").innerHTML = ps.map((p) => `<button type="button" class="lg" data-k="${p.kind}" aria-pressed="${!S.hide.has(p.kind)}"><span class="sw" style="background:var(${p.color})"></span>${esc(p.label)}</button>`).join("");
+  $("amt-warn").textContent = S.grev === "care" ? "費用は医業と介護に分かれていないため、介護収益だけと費用を比べた差額は損益を表しません。介護収益の水準を見る用途に限ってください。" : "";
+  $("amt-note").textContent = (S.grev === "care" ? "" : `収益と費用の間隔が${S.gsub ? "総損益差額" : "損益差額"}です。`) + "点線の縦線は調査回の境目で、回が変わると回答病院が入れ替わるため、境目をまたぐ金額の変化には病院の入れ替わりの影響が含まれます。" +
+    (S.gunit === "bed" ? "1床当たりは、1施設当たりの金額を各年度の平均病床数で割った値です。" : "") + (S.gsub ? "補助金等は「その他の医業・介護関連収益」で、公立病院では他会計からの繰入金なども含みます。" : "") + "凡例の表示と表示期間は推移と共通です。";
+  const shown = ps.filter((p) => !S.hide.has(p.kind)), bounds = RS.slice(1).map((r) => ({ xAxis: r.fy[0] - 0.5 }));
+  const mk = (p, k, first) => { const c = css(p.color), cost = k === "cost", data = [];
+    RS.forEach((r) => [0, 1].forEach((i) => { const a = amtOf(p.s, r.round, i); data.push([r.fy[i], a && a !== "*" ? +a[k].toFixed(2) : null]); }));
+    return { id: `${k}|${p.kind}`, name: p.label, type: "line", data, connectNulls: true,
       symbol: cost ? "emptyTriangle" : "circle", symbolSize: cost ? (narrow ? 7 : 9) : (narrow ? 6 : 8),
       lineStyle: { width: cost ? 2 : 2.5, color: c, type: cost ? [2, 4] : "solid" }, itemStyle: { color: c, borderColor: cost ? c : css("--surface-1"), borderWidth: cost ? 1.5 : narrow ? 1 : 2 },
       emphasis: { focus: "series" },
-      markLine: si === 0 && !cost ? { silent: true, symbol: "none", label: { show: false }, lineStyle: { color: css("--ref"), width: 1 }, data: [{ yAxis: 0 }] } : undefined }; };
-  const series = [...shown.map((p, i) => mk(p, "rev", i)), ...shown.map((p) => mk(p, "cost", 1))];
-  chart("ch-growth").setOption({ ...o, grid: { left: narrow ? 40 : 56, right: narrow ? 8 : 24, top: 16, bottom: 40 },
-    tooltip: { ...o.tooltip, trigger: "axis", axisPointer: { type: "line", lineStyle: { color: css("--axis") } },
-      formatter: (pts) => { const i = pts[0].dataIndex, r = RS[i];
-        const head = `<b>${r.fy[0]}→${r.fy[1]}年度</b> <span style="color:${css("--text-muted")}">第${r.round}回調査</span>`;
-        return head + "<br>" + shown.map((p) => { const g = growthOf(p.s, r.round); if (!g) return "";
+      markLine: first && bounds.length ? { silent: true, symbol: "none", label: { show: false }, lineStyle: { color: css("--grid"), width: 1, type: [3, 3] }, data: bounds } : undefined }; };
+  const series = [...shown.map((p, i) => mk(p, "rev", i === 0)), ...shown.map((p) => mk(p, "cost", false))];
+  chart("ch-amt").setOption({ ...o, grid: { left: narrow ? 48 : 64, right: narrow ? 8 : 24, top: 16, bottom: 40 },
+    tooltip: { ...o.tooltip, trigger: "axis", axisPointer: { type: "line", snap: true, lineStyle: { color: css("--axis") } },
+      formatter: (pts) => { const pt = pts.find((p) => Number.isInteger(p.value[0])); if (!pt) return ""; const y = pt.value[0], r = RS.find((x) => x.fy.includes(y)), i = r.fy.indexOf(y);
+        const head = `<b>${fyLabel(y)}</b> <span style="color:${css("--text-muted")}">第${r.round}回調査・${u}</span>`;
+        return head + "<br>" + shown.map((p) => { const a = amtOf(p.s, r.round, i); if (!a || a === "*") return "";
           const m = `<span style="display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;background:${css(p.color)}"></span>`;
-          return `${m}${esc(p.label)}　収益 <b>${fmt(g.rev, 1)}</b>％・費用 <b>${fmt(g.cost, 1)}</b>％`; }).filter(Boolean).join("<br>"); } },
-    xAxis: { type: "category", data: cats, ...o._ax, splitLine: { show: false }, axisLabel: { ...o._ax.axisLabel, interval: 0, fontSize: narrow ? 10 : 12 }, name: "年度", nameLocation: "middle", nameGap: 26, nameTextStyle: { color: css("--text-muted"), fontSize: 12 } },
-    yAxis: { type: "value", ...o._ax, axisLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => fmt(v, Number.isInteger(Math.round(v * 1e6) / 1e6) ? 0 : 1) } },
+          return `${m}${esc(p.label)}<br><span style="padding-left:14px">収益 <b>${fmt(a.rev, d)}</b>・費用 <b>${fmt(a.cost, d)}</b>・差額 <b style="color:${a.diff < 0 ? css("--neg") : "inherit"}">${fmt(a.diff, d)}</b></span>`; }).filter(Boolean).join("<br>"); } },
+    xAxis: { type: "value", min: fys[0] - 1, max: fys[fys.length - 1] + 1, interval: 1, ...o._ax, splitLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => (v < fys[0] || v > fys[fys.length - 1] ? "" : !narrow || fys.length <= 8 ? String(v) : RS.some((r) => r.fy[0] === v) ? "'" + String(v).slice(2) : ""), interval: 0, hideOverlap: false }, name: "年度", nameLocation: "middle", nameGap: 26, nameTextStyle: { color: css("--text-muted"), fontSize: 12 } },
+    yAxis: { type: "value", scale: true, ...o._ax, axisLine: { show: false }, axisLabel: { ...o._ax.axisLabel, formatter: (v) => fmt(v, 0) } },
     series }, true);
 
-  /* 表：選んだ調査回の、収益・費用と主な費目の伸び率 */
-  const R = roundOf(S.round), ITEMS_G = [["c_salary", "給与費"], ["c_drug", "医薬品費"], ["c_material", "診療材料費"], ["c_outsource", "委託費"], ["c_dep", "減価償却費"], ["c_fac", "設備関係費"], ["c_exp", "経費"]];
-  $("growth-tbl-title").textContent = `第${R.round}回：${R.fy[0]}→${R.fy[1]}年度の伸び率（％）`;
-  const head = ["病院群", `収益（${revLabel()}）`, "費用", "差（収益−費用、ポイント）", ...ITEMS_G.map(([, l]) => l)];
-  const rows = ps.map((p) => { const g = growthOf(p.s, R.round), e = p.s.r[String(R.round)];
-    if (!g) return { cells: [esc(p.label), e && e.supp ? "＊" : "–", "–", "–", ...ITEMS_G.map(() => "–")] };
-    return { cls: p.kind === "all" ? "" : "self", cells: [`<span class="sw" style="background:var(${p.color})"></span>${esc(p.label)}`, fmt(g.rev, 1), fmt(g.cost, 1), fmt(g.diff, 1),
-      ...ITEMS_G.map(([k]) => fmt(e.v[k] ? growth(e.v[k][0], e.v[k][1]) : null, 1))] }; });
-  table($("growth-table"), head, rows); S._growth = { head, rows };
+  /* 表：選んだ調査回・年度の金額 */
+  const R = roundOf(S.round), y = R.fy[S.fy];
+  $("amt-tbl-title").textContent = `第${R.round}回・${fyLabel(y)}の${S.gunit === "bed" ? "1床" : "1施設"}当たり金額（${u}）`;
+  const head = ["病院群", `収益（${revLabel()}）`, `費用（${costLabel()}）`, "差額（収益−費用）", "差額÷収益（％）", "平均病床数（床）"];
+  const rows = ps.map((p) => { const a = amtOf(p.s, R.round, S.fy), e = p.s.r[String(R.round)];
+    if (!a || a === "*") return { cells: [esc(p.label), a === "*" ? "＊" : "–", "–", "–", "–", "–"] };
+    return { cls: p.kind === "all" ? "" : "self", cells: [`<span class="sw" style="background:var(${p.color})"></span>${esc(p.label)}`, fmt(a.rev, d), fmt(a.cost, d), fmt(a.diff, d), fmt(a.rev ? (a.diff / a.rev) * 100 : null, 1), fmt(bedsOf(e, S.fy), 0)] }; });
+  table($("amt-table"), head, rows); S._amt = { head, rows };
 }
 
 /* ---------- 区分別の比較・費用構造 ---------- */
@@ -367,11 +369,11 @@ function renderSelf() {
   $("self-name").textContent = h.name;
   $("self-meta").textContent = [h.pref, h.beds ? `${fmt(h.beds, 0)}床` : null, h.kihon, { DPC: "DPC対象病院", 準備: "DPC準備病院", 出来高: "出来高算定病院" }[h.type], h.corp ? `開設者：${h.corp}` : "開設者不明"].filter(Boolean).join("・");
 }
-function renderAll() { ["ind", "trend-ind", "axis-ind"].forEach((id) => { $(id).value = S.ind; }); renderSelf(); renderProfSelects(); renderRound(); renderPeer(); renderTrend(); renderGrowth(); renderAxis(); syncUrl(); }
+function renderAll() { ["ind", "trend-ind", "axis-ind"].forEach((id) => { $(id).value = S.ind; }); renderSelf(); renderProfSelects(); renderRound(); renderPeer(); renderTrend(); renderAmt(); renderAxis(); syncUrl(); }
 function syncUrl() {
   const q = new URLSearchParams();
   if (S.h) q.set("h", S.h.id);
-  q.set("round", S.round); q.set("fy", S.fy); q.set("shukei", S.shukei); q.set("scope", S.scope); q.set("ind", S.ind); q.set("axis", S.axis); if (S.from > ROUNDS[0].fy[0]) q.set("from", S.from); if (S.ind2) q.set("ind2", S.ind2); if (S.grev !== "total") q.set("grev", S.grev); if (S.gsub) q.set("gsub", 1);
+  q.set("round", S.round); q.set("fy", S.fy); q.set("shukei", S.shukei); q.set("scope", S.scope); q.set("ind", S.ind); q.set("axis", S.axis); if (S.from > ROUNDS[0].fy[0]) q.set("from", S.from); if (S.ind2) q.set("ind2", S.ind2); if (S.grev !== "total") q.set("grev", S.grev); if (S.gsub) q.set("gsub", 1); if (S.gunit !== "fac") q.set("gunit", S.gunit);
   history.replaceState(null, "", "?" + q.toString() + location.hash);
 }
 function pick(h) { S.h = h; S.prof = h ? profFromHosp(h) : S.prof; S._subTouched = false; S._plTouched = false; $("q").value = h ? h.name : ""; renderAll(); }
@@ -405,7 +407,7 @@ async function main() {
   S.fy = q.get("fy") === "0" ? 0 : 1; S.shukei = q.get("shukei") === "2" ? 2 : 1; S.scope = q.get("scope") === "ex" ? "ex" : "all";
   S.ind = IND.some((x) => x.k === q.get("ind")) ? q.get("ind") : "pl"; S.axis = AXES.some((x) => x[0] === q.get("axis")) ? q.get("axis") : "owner";
   S.from = ROUNDS.some((r) => String(r.fy[0]) === q.get("from")) ? +q.get("from") : ROUNDS[0].fy[0];
-  $("trend-from").addEventListener("change", (e) => { S.from = +e.target.value; renderTrend(); renderGrowth(); syncUrl(); });
+  $("trend-from").addEventListener("change", (e) => { S.from = +e.target.value; renderTrend(); renderAmt(); syncUrl(); });
   $("latest-round").textContent = `第${last.round}回`; $("foot-latest").textContent = `第${last.round}回`; $("fy-range").textContent = `${ROUNDS[0].fy[0]}〜${last.fy[1]}`;
   $("foot-built").textContent = `データ作成日：${D.meta.built}`;
   fillSel($("round"), ROUNDS.slice().reverse().map((r) => [String(r.round), `第${r.round}回（${r.year}年実施）`]), S.round);
@@ -424,13 +426,14 @@ async function main() {
   onSeg("scope-seg", (v) => { S.scope = v; renderAll(); });
   onSeg("axis-seg", (v) => { S.axis = v; S._subTouched = false; S.axisSub = ""; renderAll(); });
   $("axis-sub").addEventListener("change", (e) => { S.axisSub = e.target.value; S._subTouched = true; renderAxis(); });
-  const toggleLg = (ev) => { const b = ev.target.closest("button[data-k]"); if (!b) return; const k = b.dataset.k; if (S.hide.has(k)) S.hide.delete(k); else S.hide.add(k); renderTrend(); renderGrowth(); };
-  $("trend-legend").addEventListener("click", toggleLg); $("growth-legend").addEventListener("click", toggleLg);
-  S.grev = ["total", "med", "care"].includes(q.get("grev")) ? q.get("grev") : "total"; S.gsub = q.get("gsub") === "1" ? 1 : 0;
-  setSeg("grev-seg", S.grev); setSeg("gsub-seg", S.gsub);
-  onSeg("grev-seg", (v) => { S.grev = v; renderGrowth(); syncUrl(); });
-  onSeg("gsub-seg", (v) => { S.gsub = +v; renderGrowth(); syncUrl(); });
-  $("growth-csv").addEventListener("click", () => csv("growth.csv", S._growth.head, S._growth.rows));
+  const toggleLg = (ev) => { const b = ev.target.closest("button[data-k]"); if (!b) return; const k = b.dataset.k; if (S.hide.has(k)) S.hide.delete(k); else S.hide.add(k); renderTrend(); renderAmt(); };
+  $("trend-legend").addEventListener("click", toggleLg); $("amt-legend").addEventListener("click", toggleLg);
+  S.grev = ["total", "med", "care"].includes(q.get("grev")) ? q.get("grev") : "total"; S.gsub = q.get("gsub") === "1" ? 1 : 0; S.gunit = q.get("gunit") === "bed" ? "bed" : "fac";
+  setSeg("grev-seg", S.grev); setSeg("gsub-seg", S.gsub); setSeg("gunit-seg", S.gunit);
+  onSeg("gunit-seg", (v) => { S.gunit = v; renderAmt(); syncUrl(); });
+  onSeg("grev-seg", (v) => { S.grev = v; renderAmt(); syncUrl(); });
+  onSeg("gsub-seg", (v) => { S.gsub = +v; renderAmt(); syncUrl(); });
+  $("amt-csv").addEventListener("click", () => csv("revenue_cost.csv", S._amt.head, S._amt.rows));
   $("pl-group").addEventListener("change", (e) => { S.plKey = e.target.value; S._plTouched = true; renderPL(axisList()); });
   [["p-htype", "htype"], ["p-owner", "owner"], ["p-bed", "bed"], ["p-nyuin", "nyuin"], ["p-func", "func"], ["p-ryo", "ryo"]].forEach(([id, k]) => $(id).addEventListener("change", (e) => { S.prof[k] = e.target.value; S._subTouched = false; S._plTouched = false; renderAll(); }));
   $("self-clear").addEventListener("click", () => { S.h = null; $("q").value = ""; renderAll(); });

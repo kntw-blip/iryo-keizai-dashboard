@@ -75,7 +75,7 @@
 <nav class="toc" aria-label="目次">
   <a href="#sec-peer">同規模・同機能の病院群</a>
   <a href="#sec-trend">推移</a>
-  <a href="#sec-growth">収益と費用の伸び率</a>
+  <a href="#sec-amt">収益と費用の金額</a>
   <a href="#sec-axis">区分別の比較</a>
   <a href="#sec-cost">費用構造</a>
   <a href="#sec-pl">損益明細</a>
@@ -108,9 +108,9 @@
   </div>
 </section>
 
-<section class="sec" id="sec-growth">
-  <h2>収益と費用の伸び率 <span class="note" id="growth-cond"></span>
-    <button type="button" class="ghost small" id="growth-csv">CSV</button></h2>
+<section class="sec" id="sec-amt">
+  <h2>収益と費用の金額 <span class="note" id="amt-cond"></span>
+    <button type="button" class="ghost small" id="amt-csv">CSV</button></h2>
   <div class="pick-row" style="margin-bottom:12px">
     <div class="f-item">
       <span class="f-label" id="grev-label">収益</span>
@@ -127,16 +127,24 @@
         <button type="button" role="radio" data-v="1" aria-checked="false">含む</button>
       </div>
     </div>
+    <div class="f-item">
+      <span class="f-label" id="gunit-label">単位</span>
+      <div class="seg" id="gunit-seg" role="radiogroup" aria-labelledby="gunit-label">
+        <button type="button" role="radio" data-v="fac" aria-checked="true">1施設当たり</button>
+        <button type="button" role="radio" data-v="bed" aria-checked="false">1床当たり</button>
+      </div>
+    </div>
   </div>
   <div class="card">
-    <h3 id="growth-title"></h3>
-    <div class="legend trend-key" id="growth-key"></div>
-    <div class="legend" id="growth-legend"></div>
-    <div class="chart tall" id="ch-growth" role="img" aria-label="病院群ごとの収益と費用の伸び率"></div>
-    <p class="small muted">各回の調査で、同じ病院の前々年度→前年度の伸び率です（回をまたいだ比較ではないため、病院の入れ替わりの影響を受けません）。△が●より上にある年は、費用の伸びが収益の伸びを上回っています。費用は医業・介護費用（調査では医業と介護に分かれていません）。補助金等は「その他の医業・介護関連収益」で、公立病院では他会計からの繰入金なども含みます。介護収益は金額が小さく、伸び率が大きく振れやすい点に注意してください。表示期間は推移と共通です。</p>
+    <h3 id="amt-title"></h3>
+    <div class="legend trend-key" id="amt-key"></div>
+    <div class="legend" id="amt-legend"></div>
+    <p class="small muted" id="amt-warn"></p>
+    <div class="chart tall" id="ch-amt" role="img" aria-label="病院群ごとの収益と費用の金額の推移"></div>
+    <p class="small muted" id="amt-note"></p>
   </div>
-  <h3 style="margin-top:14px" id="growth-tbl-title"></h3>
-  <div class="tablewrap"><table id="growth-table"></table></div>
+  <h3 style="margin-top:14px" id="amt-tbl-title"></h3>
+  <div class="tablewrap"><table id="amt-table"></table></div>
 </section>
 
 <section class="sec" id="sec-axis">
